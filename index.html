@@ -1,0 +1,1466 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa Interactivo de Conceptos Estadísticos</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        /* Pantalla de Login */
+        #loginScreen {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            z-index: 10000;
+        }
+
+        .login-container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .login-container h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 24px;
+        }
+
+        .login-step {
+            display: none;
+        }
+
+        .login-step.active {
+            display: block;
+        }
+
+        .login-group {
+            margin-bottom: 25px;
+        }
+
+        .login-group label {
+            display: block;
+            margin-bottom: 10px;
+            color: #555;
+            font-weight: bold;
+        }
+
+        .login-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .login-group input:focus {
+            outline: none;
+            border-color: #5fb3d3;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(145deg, #5fb3d3, #4a9bb8);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(95, 179, 211, 0.4);
+        }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+
+        .error-message {
+            background: #fee;
+            color: #c00;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 15px;
+            display: none;
+            text-align: center;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .success-message {
+            background: #efe;
+            color: #0a0;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 15px;
+            display: none;
+            text-align: center;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        /* Contenedor principal */
+        #appContainer {
+            display: none;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .title {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .title h1 {
+            font-size: 2.5em;
+            margin: 0;
+            font-weight: bold;
+        }
+
+        .title h2 {
+            font-size: 1.2em;
+            margin: 10px 0 0 0;
+            font-weight: normal;
+            opacity: 0.9;
+        }
+
+        /* Diseño de cuaderno con argollas */
+        .notebook {
+            position: relative;
+            width: 1100px;
+            margin: 0 auto;
+        }
+
+        .notebook-rings {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            padding: 40px 0;
+            z-index: 5;
+        }
+
+        .ring {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #e8e8e8 0%, #c0c0c0 40%, #a8a8a8 60%, #d8d8d8 100%);
+            border: 3px solid #999;
+            box-shadow: 
+                inset 0 3px 6px rgba(255,255,255,0.7),
+                inset 0 -2px 4px rgba(0,0,0,0.2),
+                0 4px 10px rgba(0,0,0,0.3);
+            position: relative;
+        }
+
+        .ring::before {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #888 20%, transparent 20%, transparent 60%, #999 60%);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .ring::after {
+            content: '';
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #fff 0%, #ccc 100%);
+            top: 4px;
+            left: 6px;
+        }
+
+        .main-container {
+            position: relative;
+            width: 1100px;
+            height: 760px;
+            margin: 0 auto;
+            background: 
+                repeating-linear-gradient(
+                    transparent,
+                    transparent 38px,
+                    rgba(180,210,235,0.35) 38px,
+                    rgba(180,210,235,0.35) 40px
+                ),
+                linear-gradient(180deg, 
+                    #fdf6e3 0%, 
+                    #fdf0d5 15%, 
+                    #fcecd0 30%,
+                    #fdf6e3 50%,
+                    #fcecd0 70%,
+                    #fdf6e3 100%
+                );
+            border-radius: 20px;
+            box-shadow: 
+                0 20px 60px rgba(0,0,0,0.3),
+                inset 0 2px 10px rgba(255,255,255,0.6),
+                inset -2px 0 8px rgba(200,170,100,0.2);
+            border: 4px solid rgba(200,170,100,0.5);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-left: 40px;
+        }
+
+        .main-container:hover {
+            box-shadow: 
+                0 25px 70px rgba(0,0,0,0.4),
+                inset 0 2px 10px rgba(255,255,255,0.2);
+            transform: translateY(-2px);
+        }
+
+        .main-title {
+            position: absolute;
+            left: -18px;
+            top: 50%;
+            transform: translateY(-50%) rotate(-90deg);
+            transform-origin: center;
+            color: #000000;
+            font-size: 22px;
+            font-weight: bold;
+            text-shadow: none;
+            white-space: nowrap;
+            z-index: 10;
+            letter-spacing: 3px;
+            background: #FFD700;
+            padding: 10px 28px;
+            border-radius: 8px;
+            border: 2px solid #b8960f;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+            cursor: pointer;
+            transition: background 0.2s, box-shadow 0.2s;
+        }
+
+        .main-title:hover {
+            background: #ffe033;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.3);
+        }
+
+        .bubbles-area {
+            position: absolute;
+            left: 100px;
+            top: 30px;
+            right: 30px;
+            bottom: 30px;
+        }
+
+        .bubble {
+            position: absolute;
+            border-radius: 50%;
+            background: linear-gradient(145deg, #5fb3d3, #4a9bb8);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 3px solid rgba(255,255,255,0.5);
+            color: #ffffff;
+            font-weight: bold;
+            text-align: center;
+            padding: 8px;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+        }
+
+        .bubble:hover {
+            transform: scale(1.1);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+            background: linear-gradient(145deg, #4a9bb8, #3a8aa5);
+            border-color: #fff;
+        }
+
+        .bubble.active {
+            background: linear-gradient(145deg, #ff6b6b, #ee5a24);
+            color: white;
+            transform: scale(1.05);
+        }
+
+        /* Tamaños de burbujas */
+        .bubble.xlarge {
+            width: 170px;
+            height: 170px;
+            font-size: 14px;
+        }
+
+        .bubble.large {
+            width: 135px;
+            height: 135px;
+            font-size: 12px;
+        }
+
+        .bubble.medium {
+            width: 105px;
+            height: 105px;
+            font-size: 11px;
+        }
+
+        .bubble.small {
+            width: 85px;
+            height: 85px;
+            font-size: 10px;
+        }
+
+        /* Posiciones de burbujas - nuevo orden por corridas */
+        /* Corrida 1: Estadística Descriptiva + Estadística Inferencial */
+        .descriptiva { top: 30px; left: 100px; }
+        .inferencial  { top: 30px; left: 290px; }
+
+        /* Corrida 2: Población Estadística + Muestra */
+        .poblacion { top: 205px; left: 60px; }
+        .muestra   { top: 215px; left: 280px; }
+
+        /* Corrida 3: Variable, Variable Ordinal, Variable Nominal, Variable Discreta, Variable Continua */
+        .variable  { top: 420px; left: 30px; }
+        .ordinal   { top: 415px; left: 180px; }
+        .nominal   { top: 415px; left: 340px; }
+        .discreta  { top: 415px; left: 505px; }
+        .continua  { top: 415px; left: 665px; }
+
+        /* Corrida 4: las demás */
+        .dato        { top: 600px; left: 30px; }
+        .informacion { top: 600px; left: 140px; }
+        .censo       { top: 600px; left: 255px; }
+        .encuesta    { top: 600px; left: 375px; }
+        .parametro   { top: 600px; left: 490px; }
+        .estadistico { top: 600px; left: 605px; }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            backdrop-filter: blur(5px);
+            overflow-y: auto;
+        }
+
+        .modal-content {
+            background: white;
+            margin: 3% auto;
+            padding: 30px;
+            border-radius: 15px;
+            width: 85%;
+            max-width: 800px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            animation: modalSlideIn 0.3s ease;
+            position: relative;
+        }
+
+        @keyframes modalSlideIn {
+            from { transform: scale(0.7); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        .close:hover {
+            color: #000;
+        }
+
+        .modal h2 {
+            color: #333;
+            margin-top: 0;
+            border-bottom: 3px solid #5fb3d3;
+            padding-bottom: 10px;
+            clear: both;
+        }
+
+        .modal h3 {
+            color: #5fb3d3;
+            margin-top: 25px;
+            margin-bottom: 10px;
+        }
+
+        .modal p, .modal div {
+            line-height: 1.6;
+            color: #555;
+            text-align: justify;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+        }
+
+        .modal-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .modal-btn-edit {
+            background: linear-gradient(145deg, #ffd700, #ffed4e);
+            color: #333;
+        }
+
+        .modal-btn-edit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 215, 0, 0.4);
+        }
+
+        .modal-btn-student {
+            background: linear-gradient(145deg, #5fb3d3, #4a9bb8);
+            color: white;
+        }
+
+        .modal-btn-student:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(95, 179, 211, 0.4);
+        }
+
+        /* Editor de contenido */
+        .content-editor {
+            display: none;
+            margin-top: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            border: 2px solid #5fb3d3;
+        }
+
+        .content-editor.active {
+            display: block;
+        }
+
+        .editor-field {
+            margin-bottom: 15px;
+        }
+
+        .editor-field label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: bold;
+        }
+
+        .editor-field textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+        }
+
+        .editor-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        /* Notas del estudiante */
+        .student-notes {
+            display: none;
+            margin-top: 20px;
+            padding: 15px;
+            background: #fffef0;
+            border-radius: 8px;
+            border: 2px solid #ffd700;
+        }
+
+        .student-notes.active {
+            display: block;
+        }
+
+        .student-notes h4 {
+            color: #b8960f;
+            margin-bottom: 10px;
+        }
+
+        .student-notes textarea {
+            width: 100%;
+            min-height: 200px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        /* Marca de agua */
+        .watermark {
+            position: absolute;
+            bottom: 12px;
+            right: 20px;
+            font-size: 10px;
+            color: rgba(80,60,20,0.65);
+            font-style: italic;
+            line-height: 1.2;
+            text-align: right;
+        }
+
+        /* Panel de estadísticas (solo admin) */
+        .stats-panel {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            display: none;
+            max-width: 260px;
+            z-index: 999;
+        }
+
+        .stats-panel.show {
+            display: block;
+        }
+
+        .stats-panel h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .stats-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .stats-panel-header h3 {
+            margin: 0;
+        }
+
+        .stats-close-btn {
+            background: #e0e0e0;
+            border: none;
+            border-radius: 50%;
+            width: 26px;
+            height: 26px;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #333;
+            flex-shrink: 0;
+        }
+
+        .stats-close-btn:hover {
+            background: #c0c0c0;
+        }
+
+        .stats-item {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+            font-size: 13px;
+            color: #555;
+        }
+
+        .stats-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(145deg, #ffd700, #ffed4e);
+            color: #333;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            display: none;
+            z-index: 998;
+        }
+
+        .stats-toggle.show {
+            display: block;
+        }
+
+        .stats-toggle:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 7px 20px rgba(0,0,0,0.3);
+        }
+
+        .logout-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: linear-gradient(145deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            z-index: 998;
+        }
+
+        .logout-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 7px 20px rgba(0,0,0,0.3);
+        }
+
+        @media (max-width: 1200px) {
+            .notebook {
+                width: 95%;
+            }
+            
+            .main-container {
+                width: 95%;
+                height: 600px;
+            }
+            
+            .modal-content {
+                width: 95%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Pantalla de Login -->
+    <div id="loginScreen">
+        <div class="login-container">
+            <h1>Acceso - Mapa Interactivo de los principales conceptos Estadísticos</h1>
+            
+            <!-- Paso 1: Selección de rol -->
+            <div id="step1" class="login-step active">
+                <div class="login-group">
+                    <label>Accedes como:</label>
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="selectRole('profesor')">Profesor</button>
+                        <button class="btn btn-primary" onclick="selectRole('alumno')">Alumno(a)</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Paso 2: Autenticación Profesor -->
+            <div id="step2Profesor" class="login-step">
+                <div class="login-group">
+                    <label>Ingrese clave de acceso:</label>
+                    <input type="password" id="profesorPassword" placeholder="Clave de acceso">
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="backToStep1()">Volver</button>
+                    <button class="btn btn-primary" onclick="loginProfesor()">Ingresar</button>
+                </div>
+                <div id="errorProfesor" class="error-message"></div>
+            </div>
+
+            <!-- Paso 2: Autenticación Alumno - Solo Email -->
+            <div id="step2Alumno" class="login-step">
+                <div class="login-group">
+                    <label>Registre su correo institucional:</label>
+                    <input type="email" id="alumnoEmail" placeholder="ejemplo@estudiantes.uv.cl">
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="backToStep1()">Volver</button>
+                    <button class="btn btn-primary" onclick="loginAlumno()">Ingresar</button>
+                </div>
+                <div id="errorAlumnoEmail" class="error-message"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenedor principal de la App -->
+    <div id="appContainer">
+        <button class="logout-btn" onclick="logout()">Cerrar Sesión</button>
+        <button class="stats-toggle" id="statsToggle" onclick="toggleStats()">📊 Estadísticas</button>
+        
+        <div class="stats-panel" id="statsPanel">
+            <div class="stats-panel-header">
+                <h3>Estadísticas de Uso</h3>
+                <button class="stats-close-btn" onclick="toggleStats()" title="Cerrar">✕</button>
+            </div>
+            <div id="statsContent"></div>
+        </div>
+
+        <div class="container">
+            <div class="title">
+                <h1>Mapa interactivo de conceptos estadísticos básicos</h1>
+                <h2>(Asignatura: "Estadística", año 2026)</h2>
+            </div>
+
+            <div class="notebook">
+                <div class="notebook-rings">
+                    <div class="ring"></div>
+                    <div class="ring"></div>
+                    <div class="ring"></div>
+                    <div class="ring"></div>
+                    <div class="ring"></div>
+                    <div class="ring"></div>
+                    <div class="ring"></div>
+                </div>
+                <!-- Línea roja de margen estilo cuaderno -->
+                <div style="position:absolute;left:95px;top:0;bottom:0;width:3px;background:rgba(220,50,50,0.3);z-index:4;border-radius:2px;"></div>
+
+                <div class="main-container" data-concept="estadistica">
+                    <div class="main-title" id="mainTitle" onclick="event.stopPropagation(); showModal('estadistica')">ESTADÍSTICA</div>
+                    
+                    <div class="bubbles-area">
+                        <!-- Corrida 1 -->
+                        <div class="bubble medium descriptiva" data-concept="descriptiva">Estadística<br>Descriptiva</div>
+                        <div class="bubble medium inferencial" data-concept="inferencial">Estadística<br>Inferencial</div>
+                        <!-- Corrida 2 -->
+                        <div class="bubble xlarge poblacion" data-concept="poblacion">Población<br>Estadística</div>
+                        <div class="bubble small muestra" data-concept="muestra">Muestra</div>
+                        <!-- Corrida 3 -->
+                        <div class="bubble large variable" data-concept="variable">Variable</div>
+                        <div class="bubble large ordinal" data-concept="ordinal">Variable<br>Ordinal</div>
+                        <div class="bubble large nominal" data-concept="nominal">Variable<br>Nominal</div>
+                        <div class="bubble large discreta" data-concept="discreta">Variable<br>Discreta</div>
+                        <div class="bubble large continua" data-concept="continua">Variable<br>Continua</div>
+                        <!-- Corrida 4 -->
+                        <div class="bubble small dato" data-concept="dato">Dato</div>
+                        <div class="bubble small informacion" data-concept="informacion">Información</div>
+                        <div class="bubble small censo" data-concept="censo">Censo</div>
+                        <div class="bubble small encuesta" data-concept="encuesta">Encuesta</div>
+                        <div class="bubble small parametro" data-concept="parametro">Parámetro</div>
+                        <div class="bubble small estadistico" data-concept="estadistico">Estadístico</div>
+                    </div>
+                </div>
+
+                <div class="watermark">
+                    <em>Desarrollado por: Docente: JuanPabloManríquez // año 2026</em>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // BASE DE DATOS DE ALUMNOS (desde Excel)
+        // ============================================
+        const alumnosDB = [
+            "valentin.alvarez@estudiantes.uv.cl",
+            "constanza.alvarezv@estudiantes.uv.cl",
+            "franco.arancibia@estudiantes.uv.cl",
+            "isidora.arayam@estudiantes.uv.cl",
+            "tomas.arayar@estudiantes.uv.cl",
+            "francisca.calderonl@estudiantes.uv.cl",
+            "camila.carrascog@estudiantes.uv.cl",
+            "vicente.castaneda@estudiantes.uv.cl",
+            "aranza.contreras@estudiantes.uv.cl",
+            "michelle.cortes@estudiantes.uv.cl",
+            "maria.cruz@estudiantes.uv.cl",
+            "maitte.escobar@estudiantes.uv.cl",
+            "maite.espinoza@estudiantes.uv.cl",
+            "zuelen.estay@estudiantes.uv.cl",
+            "amanda.fuentesr@estudiantes.uv.cl",
+            "rodrigo.garciag@estudiantes.uv.cl",
+            "violeta.godoy@estudiantes.uv.cl",
+            "antonia.gonzalezz@estudiantes.uv.cl",
+            "valentina.huito@estudiantes.uv.cl",
+            "millaray.jarab@estudiantes.uv.cl",
+            "isabella.lara@estudiantes.uv.cl",
+            "valentina.martinezr@estudiantes.uv.cl",
+            "angela.meneses@estudiantes.uv.cl",
+            "catalina.moralesmo@estudiantes.uv.cl",
+            "fernanda.ortega@estudiantes.uv.cl",
+            "josefina.parada@estudiantes.uv.cl",
+            "millaray.paredes@estudiantes.uv.cl",
+            "trinidad.ponce@estudiantes.uv.cl",
+            "catalina.ramirezr@estudiantes.uv.cl",
+            "baltazar.roca@estudiantes.uv.cl",
+            "alfonso.rojas@estudiantes.uv.cl",
+            "javiera.rojassan@estudiantes.uv.cl",
+            "jonatan.rubilar@estudiantes.uv.cl",
+            "sofia.saezs@estudiantes.uv.cl",
+            "josefa.salinasr@estudiantes.uv.cl",
+            "javiera.sepulvedaro@estudiantes.uv.cl",
+            "florencia.toledo@estudiantes.uv.cl",
+            "yamil.torres@estudiantes.uv.cl",
+            "nelson.torres@estudiantes.uv.cl",
+            "jetro.vasquez@estudiantes.uv.cl",
+            "valentina.vasquezal@estudiantes.uv.cl",
+            "nayelly.veas@estudiantes.uv.cl",
+            "mariana.veliz@estudiantes.uv.cl",
+            "javiera.vergarapi@estudiantes.uv.cl",
+            "tania.villagra@estudiantes.uv.cl",
+            "victor.arancibiah@estudiantes.uv.cl",
+            "sebastian.arqueros@estudiantes.uv.cl",
+            "diego.bahamondes@estudiantes.uv.cl",
+            "vicente.barnes@estudiantes.uv.cl",
+            "antonella.cortes@estudiantes.uv.cl",
+            "magdalena.cortes@estudiantes.uv.cl",
+            "renato.erazo@estudiantes.uv.cl",
+            "aida.galaz@estudiantes.uv.cl",
+            "valentina.hidalgo@estudiantes.uv.cl",
+            "ignacia.lopeza@estudiantes.uv.cl",
+            "montserrat.mardones@estudiantes.uv.cl",
+            "bianka.milla@estudiantes.uv.cl",
+            "monserrat.moralesb@estudiantes.uv.cl",
+            "bairon.morales@estudiantes.uv.cl",
+            "daniela.munoza@estudiantes.uv.cl",
+            "constanza.ojedab@estudiantes.uv.cl",
+            "sayri.quevedo@estudiantes.uv.cl",
+            "joaquin.quilodran@estudiantes.uv.cl",
+            "natalia.rios@estudiantes.uv.cl",
+            "javiera.riverosr@estudiantes.uv.cl",
+            "anays.segura@estudiantes.uv.cl",
+            "maximiliano.soiza@estudiantes.uv.cl",
+            "kevin.vega@estudiantes.uv.cl",
+            "felipe.verdugoh@estudiantes.uv.cl",
+            "martin.vergaran@estudiantes.uv.cl",
+            "samira.abde@estudiantes.uv.cl",
+            "paola.alcaide@estudiantes.uv.cl",
+            "cristobal.bustamantec@estudiantes.uv.cl",
+            "catalina.herrerav@estudiantes.uv.cl",
+            "benjamin.olate@estudiantes.uv.cl",
+            "martina.ponce@estudiantes.uv.cl",
+            "renata.romero@estudiantes.uv.cl",
+            "josefa.sanchez@estudiantes.uv.cl",
+            "nicolas.sanchezs@estudiantes.uv.cl",
+            "alonso.segovia@estudiantes.uv.cl",
+            "francisca.tapial@estudiantes.uv.cl",
+            "esperanza.urrutiac@estudiantes.uv.cl",
+            "nicolas.veraa@estudiantes.uv.cl",
+            "c.aguirre56@alumnos.santotomas.cl",
+            "m.andrade45@alumnos.santotomas.cl",
+            "d.caceres46@alumnos.santotomas.cl",
+            "g.catron@alumnos.santotomas.cl",
+            "r.diaz93@alumnos.santotomas.cl",
+            "a.fulik@alumnos.santotomas.cl",
+            "b.ibanez4@alumnos.santotomas.cl",
+            "luissebastian.jimenez@alumnos.santotomas.cl",
+            "r.letelier1@alumnos.santotomas.cl",
+            "j.milla2@alumnos.santotomas.cl",
+            "i.mondaca4@alumnos.santotomas.cl",
+            "m.moralesg2@alumnos.santotomas.cl",
+            "m.munoz83@alumnos.santotomas.cl",
+            "m.narvaez9@alumnos.santotomas.cl",
+            "d.neira28@alumnos.santotomas.cl",
+            "e.riccione@alumnos.santotomas.cl",
+            "f.salas17@alumnos.santotomas.cl",
+            "c.sanchez143@alumnos.santotomas.cl",
+            "c.sarmiento3@alumnos.santotomas.cl",
+            "j.silva187@alumnos.santotomas.cl",
+            "e.torres54@alumnos.santotomas.cl",
+            "l.vasquez42@alumnos.santotomas.cl",
+            "e.vega52@alumnos.santotomas.cl"
+        ];
+
+        // ============================================
+        // CONFIGURACIÓN Y CONSTANTES
+        // ============================================
+        const ADMIN_PASSWORD = "YIN2026";
+        const MAX_LOGIN_ATTEMPTS = 3;
+        let loginAttempts = 0;
+        let currentUser = null;
+        let isAdmin = false;
+
+        // ============================================
+        // DATOS INICIALES DE CONCEPTOS
+        // ============================================
+        const defaultConcepts = {
+            estadistica: {
+                title: "Estadística",
+                definition: "Una ciencia (o una derivación de las ciencias exactas), que permite, a través de un conjunto de métodos y técnicas, conocer y determinar: la obtención, el tratamiento, el análisis, y la interpretación de datos, con el propósito de servir como apoyo relevante para la toma de decisiones.",
+                uses: "En gestión pública se utiliza para: análisis de políticas públicas, evaluación de programas gubernamentales, planificación presupuestaria, estudios demográficos, análisis de indicadores sociales, evaluación de servicios públicos, monitoreo de metas gubernamentales, y apoyo en la toma de decisiones estratégicas del sector público.",
+                example: "El Ministerio de Desarrollo Social utiliza técnicas estadísticas para analizar la evolución de la pobreza en Chile, procesando datos de la Encuesta CASEN para diseñar políticas sociales focalizadas y evaluar el impacto de los programas de transferencias monetarias."
+            },
+            descriptiva: {
+                title: "Estadística Descriptiva",
+                definition: "Es una técnica que se encarga de la recopilación, organización, presentación y análisis de datos; con el propósito de describir las características de mayor relevancia en el 'aporte numérico' a la solución de problemas.",
+                uses: "En gestión pública se aplica en: elaboración de reportes gubernamentales, caracterización de poblaciones beneficiarias, análisis de indicadores de gestión municipal, presentación de datos en informes de transparencia, diagnósticos territoriales, y creación de dashboards para autoridades públicas.",
+                example: "La Municipalidad de Providencia utiliza estadística descriptiva para crear un informe anual que muestra el promedio de tiempo de respuesta a reclamos ciudadanos (15 días), la mediana de edad de usuarios de programas sociales (45 años), y gráficos que muestran la distribución de tipos de solicitudes más frecuentes."
+            },
+            inferencial: {
+                title: "Estadística Inferencial",
+                definition: "Constituye la técnica mediante la cual se obtienen conclusiones o generalizaciones válidas respecto de una determinada población estadística bajo estudio; principalmente en el ámbito de 'lo desconocido'... a través de técnicas de estimación y la comprobación de hipótesis.",
+                uses: "En gestión pública se emplea para: estimación de parámetros poblacionales a partir de encuestas muestrales, pruebas de hipótesis sobre efectividad de políticas públicas, predicción de demanda de servicios públicos, evaluación de impacto de programas sociales, análisis de tendencias demográficas, y proyecciones presupuestarias.",
+                example: "El MINSAL realiza una encuesta a 2,000 usuarios de centros de salud primaria para estimar, con 95% de confianza, que entre el 78% y 84% de la población chilena está satisfecha con la atención primaria, permitiendo extrapolar estos resultados a toda la población nacional."
+            },
+            poblacion: {
+                title: "Población Estadística",
+                definition: "Es TODO el conjunto de unidades (personas, u otros elementos etc.) de los que se quiere obtener datos e información.",
+                uses: "En gestión pública se define para: censos nacionales, estudios de caracterización social, evaluaciones de cobertura de programas públicos, análisis de demanda de servicios municipales, estudios de satisfacción ciudadana, y diseño de políticas públicas focalizadas.",
+                example: "Para evaluar el programa 'Chile Crece Contigo', la población estadística está constituida por todas las familias chilenas con niños menores de 4 años registradas en el sistema público de salud durante el período 2020-2024, totalizando aproximadamente 320,000 familias a nivel nacional."
+            },
+            muestra: {
+                title: "Muestra",
+                definition: "Es un subconjunto de la población en estudio. Para que ésta sea representativa debe poseer las características de la población, reflejando sus similitudes y diferencias. En este caso se denomina también MUESTRA ALEATORIA.",
+                uses: "En gestión pública se utiliza para: encuestas de satisfacción ciudadana con presupuestos limitados, estudios piloto antes de implementar políticas masivas, evaluaciones rápidas de programas gubernamentales, sondeos de opinión pública, auditorías por muestreo, y estudios de factibilidad de proyectos públicos.",
+                example: "Para evaluar la satisfacción con el transporte público en Santiago, el Ministerio de Transportes selecciona una muestra aleatoria de 1,500 usuarios de las 33 comunas, estratificada por edad, género y nivel socioeconómico, que representa a los 2.5 millones de usuarios diarios del sistema."
+            },
+            variable: {
+                title: "Variable",
+                definition: "Cualquier característica de interés desde una población o muestra estadística en estudio, medible y que varía entre una unidad y otra.",
+                uses: "En gestión pública se identifican variables como: indicadores de desempeño institucional, características socioeconómicas de beneficiarios, métricas de calidad de servicios públicos, variables presupuestarias, indicadores de transparencia, y medidas de impacto social de políticas públicas.",
+                example: "En un estudio sobre efectividad de jardines infantiles públicos, las variables incluyen: edad de los niños (continua), nivel educativo de los padres (ordinal: básica/media/superior), comuna de residencia (nominal), y puntaje en test de desarrollo cognitivo (continua de 0 a 100 puntos)."
+            },
+            discreta: {
+                title: "Variable Discreta",
+                definition: "Es cualquier característica de interés estadístico, que puede ser medible sólo a través de números enteros.",
+                uses: "En gestión pública se encuentra en: conteo de beneficiarios de programas sociales, número de funcionarios por departamento, cantidad de proyectos ejecutados, número de reclamos ciudadanos, cantidad de licencias otorgadas, y número de servicios públicos por comuna.",
+                example: "Cantidad de atenciones diarias en el servicio de urgencias del hospital regional 'KsiSano', durante los últimos 4 meses."
+            },
+            continua: {
+                title: "Variable Continua",
+                definition: "Es cualquier característica de interés estadístico, que puede ser medible considerando valores intermedios en un rango determinado. En términos teóricos esta variable puede tomar cualquier valor real en un rango determinado.",
+                uses: "En gestión pública aparece en: tiempos de tramitación de servicios, montos presupuestarios, porcentajes de ejecución, distancias a servicios públicos, temperaturas en estudios ambientales, y índices de calidad de vida.",
+                example: "Tiempo de espera (en minutos) de los usuarios del Depto. de tránsito de la Municipalidad de San Miguel (RM), atendidos durante los últimos 6 meses."
+            },
+            ordinal: {
+                title: "Variable Ordinal",
+                definition: "Es cualquier característica de interés estadístico, que puede ser medible a través de cualidades o atributos que tienen un orden establecido.",
+                uses: "En gestión pública se utiliza para: escalas de satisfacción ciudadana, niveles de prioridad de proyectos, grados de urgencia en atención médica, categorías de riesgo social, niveles de transparencia institucional, y clasificaciones de calidad de servicios.",
+                example: "Nivel de satisfacción de adultos mayores respecto de su atención como usuario del IPS de la quinta región (muy satisfecho - medianamente satisfecho - insatisfecho), en los últimos 6 meses."
+            },
+            nominal: {
+                title: "Variable Nominal",
+                definition: "Es cualquier característica de interés estadístico, que puede ser medible a través de cualidades o atributos que no tienen un orden establecido.",
+                uses: "En gestión pública se encuentra en: tipo de servicio público utilizado, región de procedencia de beneficiarios, género de funcionarios públicos, tipo de trámite realizado, modalidad de atención (presencial/online), y categoría de programa social.",
+                example: "Nacionalidad de los usuarios del Hospital de la comuna de San Antonio, atendidos durante los últimos 2 años."
+            },
+            dato: {
+                title: "Dato",
+                definition: "Cualquier elemento (observación aislada) que es parte de 'la información estadística' requerida sobre el fenómeno a estudiar.",
+                uses: "En gestión pública constituye: registros individuales de beneficiarios, respuestas específicas en encuestas ciudadanas, valores unitarios de indicadores de gestión, observaciones particulares en auditorías, mediciones específicas de servicios, y registros administrativos únicos.",
+                example: "En una encuesta sobre transporte público, un dato específico sería: 'Usuario de 28 años, de la comuna de Maipú, que califica con nota 6 su satisfacción con el servicio de buses y demora 45 minutos en llegar a su trabajo'."
+            },
+            informacion: {
+                title: "Información Estadística",
+                definition: "Corresponde a la representación resumida de un conjunto de datos a través de formas de presentación como también de indicadores que permiten resumirlos.",
+                uses: "En gestión pública se materializa en: reportes ejecutivos para autoridades, dashboards de indicadores municipales, informes de gestión institucional, boletines estadísticos gubernamentales, reportes de transparencia activa, y resúmenes de evaluación de políticas públicas.",
+                example: "El informe trimestral del SERVIU que muestra que el 78% de las viviendas sociales se entregan en plazo, con un promedio de 18 meses de construcción, beneficiando a 1,250 familias por trimestre, concentrándose el 65% en la Región Metropolitana."
+            },
+            censo: {
+                title: "Censo",
+                definition: "Es el estudio de TODAS las unidades que componen la población estadística (tal como ya se planteó, pueden ser personas u otros elementos).",
+                uses: "En gestión pública se realiza para: censo nacional de población y vivienda, catastro completo de establecimientos educacionales, registro total de funcionarios públicos, inventario completo de infraestructura pública, censo de empresas prestadoras de servicios públicos, y levantamiento total de activos municipales.",
+                example: "El Censo Nacional de Población y Vivienda 2017 realizado por el INE, que registró información de todos los hogares chilenos para obtener datos sobre 17.5 millones de habitantes, permitiendo la redistribución del Fondo Común Municipal y la planificación de políticas públicas territoriales."
+            },
+            encuesta: {
+                title: "Encuesta",
+                definition: "Es una de las formas de recolección de datos de mayor uso; se materializa habitualmente a través de un formulario que la unidad muestral o poblacional debe llenar.",
+                uses: "En gestión pública se emplea para: evaluación de satisfacción ciudadana, estudios de percepción sobre seguridad pública, consultas ciudadanas sobre proyectos municipales, encuestas de clima laboral en el sector público, estudios de demanda de servicios, y evaluación de programas sociales.",
+                example: "La Encuesta Nacional de Seguridad Ciudadana (ENUSC) aplicada anualmente por el INE a 24,000 hogares chilenos, que mide la percepción de seguridad, victimización y evaluación del desempeño policial, información clave para el diseño de políticas de seguridad pública."
+            },
+            parametro: {
+                title: "Parámetro",
+                definition: "Corresponde a mediciones estadísticas para la población en estudio, generalmente desconocidas, que requiere ser estimado en función de valores muestrales conocidos y representativos.",
+                uses: "En gestión pública se busca estimar: tasa real de desempleo nacional, proporción exacta de familias en situación de pobreza, promedio real de satisfacción ciudadana con servicios municipales, porcentaje real de cobertura de programas sociales, y nivel real de transparencia gubernamental.",
+                example: "El verdadero porcentaje de adultos mayores chilenos que requieren cuidados de largo plazo (parámetro desconocido) se estima mediante la Encuesta Nacional de Dependencia aplicada a una muestra representativa, estimándose que aproximadamente el 11.4% de los adultos mayores necesita estos cuidados."
+            },
+            estadistico: {
+                title: "Estadístico (Estadígrafo)",
+                definition: "Es una medición estadística que proviene de los datos muestrales.",
+                uses: "En gestión pública se calcula para: promedios muestrales de indicadores de gestión, porcentajes observados en encuestas ciudadanas, medianas de tiempos de atención en servicios públicos, desviaciones estándar de presupuestos ejecutados, y correlaciones entre variables de políticas públicas.",
+                example: "En una muestra de 800 usuarios de consultorios municipales de la Región de Valparaíso, el estadístico muestra que el tiempo promedio de espera es de 32 minutos, con una desviación estándar de 18 minutos, y el 67% califica como 'buena' la atención recibida."
+            }
+        };
+
+        // ============================================
+        // SISTEMA DE ALMACENAMIENTO LOCAL
+        // ============================================
+        function initializeStorage() {
+            if (!localStorage.getItem('concepts')) {
+                localStorage.setItem('concepts', JSON.stringify(defaultConcepts));
+            }
+            if (!localStorage.getItem('studentNotes')) {
+                localStorage.setItem('studentNotes', JSON.stringify({}));
+            }
+            if (!localStorage.getItem('statistics')) {
+                localStorage.setItem('statistics', JSON.stringify({
+                    totalLogins: 0,
+                    bubbleClicks: {},
+                    lastAccess: null,
+                    userSessions: []
+                }));
+            }
+        }
+
+        function getConcepts() {
+            return JSON.parse(localStorage.getItem('concepts'));
+        }
+
+        function saveConcepts(concepts) {
+            localStorage.setItem('concepts', JSON.stringify(concepts));
+        }
+
+        function getStudentNotes(conceptId) {
+            const notes = JSON.parse(localStorage.getItem('studentNotes'));
+            const userKey = `${currentUser.email}_${conceptId}`;
+            return notes[userKey] || '';
+        }
+
+        function saveStudentNotes(conceptId, content) {
+            const notes = JSON.parse(localStorage.getItem('studentNotes'));
+            const userKey = `${currentUser.email}_${conceptId}`;
+            notes[userKey] = content;
+            localStorage.setItem('studentNotes', JSON.stringify(notes));
+        }
+
+        function updateStatistics(action, data = {}) {
+            const stats = JSON.parse(localStorage.getItem('statistics'));
+            
+            switch(action) {
+                case 'login':
+                    stats.totalLogins++;
+                    stats.userSessions.push({
+                        user: data.user,
+                        timestamp: new Date().toISOString(),
+                        role: data.role
+                    });
+                    stats.lastAccess = new Date().toISOString();
+                    break;
+                case 'bubbleClick':
+                    if (!stats.bubbleClicks[data.conceptId]) {
+                        stats.bubbleClicks[data.conceptId] = 0;
+                    }
+                    stats.bubbleClicks[data.conceptId]++;
+                    break;
+            }
+            
+            localStorage.setItem('statistics', JSON.stringify(stats));
+        }
+
+        function displayStatistics() {
+            const stats = JSON.parse(localStorage.getItem('statistics'));
+            const statsContent = document.getElementById('statsContent');
+            
+            // Contar accesos por tipo
+            const alumnoSessions = (stats.userSessions || []).filter(s => s.role === 'alumno').length;
+            const adminSessions = (stats.userSessions || []).filter(s => s.role === 'admin').length;
+            
+            let html = `
+                <div class="stats-item">Total de accesos: ${stats.totalLogins}</div>
+                <div class="stats-item" style="padding-left:8px;">↳ Alumnos: ${alumnoSessions} | Docente: ${adminSessions}</div>
+                <div class="stats-item">Último acceso: ${stats.lastAccess ? new Date(stats.lastAccess).toLocaleString('es-CL') : 'N/A'}</div>
+                <div class="stats-item"><strong>Clicks por burbuja (todos los usuarios):</strong></div>
+            `;
+            
+            const sortedClicks = Object.entries(stats.bubbleClicks)
+                .sort((a, b) => b[1] - a[1]);
+            
+            if (sortedClicks.length === 0) {
+                html += `<div class="stats-item" style="padding-left: 10px; color: #aaa;">Sin clicks registrados aún</div>`;
+            } else {
+                sortedClicks.forEach(([concept, count]) => {
+                    html += `<div class="stats-item" style="padding-left: 10px;">• ${concept}: ${count}</div>`;
+                });
+            }
+            
+            statsContent.innerHTML = html;
+        }
+
+        // ============================================
+        // SISTEMA DE AUTENTICACIÓN
+        // ============================================
+        function selectRole(role) {
+            document.getElementById('step1').classList.remove('active');
+            
+            if (role === 'profesor') {
+                document.getElementById('step2Profesor').classList.add('active');
+            } else {
+                document.getElementById('step2Alumno').classList.add('active');
+            }
+        }
+
+        function backToStep1() {
+            document.querySelectorAll('.login-step').forEach(step => step.classList.remove('active'));
+            document.getElementById('step1').classList.add('active');
+            clearErrors();
+            loginAttempts = 0;
+        }
+
+        function loginProfesor() {
+            const password = document.getElementById('profesorPassword').value;
+            const errorDiv = document.getElementById('errorProfesor');
+            
+            if (password === ADMIN_PASSWORD) {
+                currentUser = { email: 'admin@estadistica.cl', role: 'profesor' };
+                isAdmin = true;
+                updateStatistics('login', { user: 'Profesor', role: 'admin' });
+                showApp();
+            } else {
+                showError(errorDiv, 'Clave incorrecta. Intente nuevamente.');
+            }
+        }
+
+        function backToStep1Placeholder() { /* placeholder */ }
+
+        function loginAlumno() {
+            const email = document.getElementById('alumnoEmail').value.trim().toLowerCase();
+            const errorDiv = document.getElementById('errorAlumnoEmail');
+            
+            loginAttempts++;
+            
+            if (!email.includes('@')) {
+                showError(errorDiv, 'Por favor ingrese un correo electrónico válido.');
+                return;
+            }
+            
+            const encontrado = alumnosDB.find(e => e === email);
+            
+            if (encontrado) {
+                currentUser = { email: email, role: 'alumno' };
+                isAdmin = false;
+                updateStatistics('login', { user: email, role: 'alumno' });
+                showApp();
+            } else {
+                handleFailedLogin(errorDiv);
+            }
+        }
+
+        function handleFailedLogin(errorDiv) {
+            if (loginAttempts >= MAX_LOGIN_ATTEMPTS) {
+                showError(errorDiv, 'Debes ponerte en contacto con el administrador de esta App para acceder.');
+                document.querySelectorAll('input').forEach(input => input.disabled = true);
+                document.querySelectorAll('.btn-primary').forEach(btn => btn.disabled = true);
+            } else {
+                showError(errorDiv, `Datos incorrectos. Intentos restantes: ${MAX_LOGIN_ATTEMPTS - loginAttempts}`);
+            }
+        }
+
+        function showError(element, message) {
+            element.textContent = message;
+            element.classList.add('show');
+            setTimeout(() => element.classList.remove('show'), 5000);
+        }
+
+        function clearErrors() {
+            document.querySelectorAll('.error-message').forEach(el => {
+                el.classList.remove('show');
+                el.textContent = '';
+            });
+        }
+
+        function showApp() {
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('appContainer').style.display = 'block';
+            
+            if (isAdmin) {
+                document.getElementById('statsToggle').classList.add('show');
+                displayStatistics();
+            }
+        }
+
+        function logout() {
+            if (confirm('¿Está seguro que desea cerrar sesión?')) {
+                currentUser = null;
+                isAdmin = false;
+                document.getElementById('appContainer').style.display = 'none';
+                document.getElementById('loginScreen').style.display = 'flex';
+                document.getElementById('statsToggle').classList.remove('show');
+                document.getElementById('statsPanel').classList.remove('show');
+                backToStep1();
+                
+                // Limpiar campos
+                document.querySelectorAll('input').forEach(input => {
+                    input.value = '';
+                    input.disabled = false;
+                });
+                document.querySelectorAll('.btn-primary').forEach(btn => btn.disabled = false);
+            }
+        }
+
+        function toggleStats() {
+            const panel = document.getElementById('statsPanel');
+            panel.classList.toggle('show');
+            if (panel.classList.contains('show')) {
+                displayStatistics();
+            }
+        }
+
+        // ============================================
+        // SISTEMA DE MODAL Y CONTENIDO
+        // ============================================
+        const modal = document.getElementById('modal');
+        const modalBody = document.getElementById('modal-body');
+        const closeBtn = document.querySelector('.close');
+        const mainContainer = document.querySelector('.main-container');
+        const bubbles = document.querySelectorAll('.bubble');
+
+        function showModal(conceptId) {
+            const concepts = getConcepts();
+            const data = concepts[conceptId];
+            
+            if (!data) return;
+            
+            updateStatistics('bubbleClick', { conceptId });
+            
+            let actionsHTML = '';
+            if (isAdmin) {
+                actionsHTML += `
+                    <button class="modal-btn modal-btn-edit" onclick="toggleEditor('${conceptId}')">
+                        🔧 Edición completa (habilitada sólo para el Adm de la App)
+                    </button>
+                `;
+            }
+            actionsHTML += `
+                <button class="modal-btn modal-btn-student" onclick="toggleStudentNotes('${conceptId}')">
+                    📝 Edición alumnos(as)
+                </button>
+            `;
+            
+            const studentNotes = getStudentNotes(conceptId);
+            
+            modalBody.innerHTML = `
+                <h2>${data.title}</h2>
+                <div id="contentDisplay">
+                    <h3>Definición:</h3>
+                    <p>${data.definition}</p>
+                    <h3>Usos y aplicaciones en gestión pública:</h3>
+                    <p>${data.uses}</p>
+                    <h3>Ejemplo práctico:</h3>
+                    <p>${data.example}</p>
+                </div>
+                
+                <div id="contentEditor" class="content-editor" data-concept="${conceptId}">
+                    <div class="editor-field">
+                        <label>Título:</label>
+                        <input type="text" id="edit-title" value="${data.title}">
+                    </div>
+                    <div class="editor-field">
+                        <label>Definición:</label>
+                        <textarea id="edit-definition" rows="4">${data.definition}</textarea>
+                    </div>
+                    <div class="editor-field">
+                        <label>Usos y aplicaciones:</label>
+                        <textarea id="edit-uses" rows="4">${data.uses}</textarea>
+                    </div>
+                    <div class="editor-field">
+                        <label>Ejemplo práctico:</label>
+                        <textarea id="edit-example" rows="4">${data.example}</textarea>
+                    </div>
+                    <div class="editor-actions">
+                        <button class="btn btn-secondary" onclick="closeEditor()">Cancelar</button>
+                        <button class="btn btn-primary" onclick="saveEdits('${conceptId}')">Guardar Cambios</button>
+                    </div>
+                </div>
+                
+                <div id="studentNotesArea" class="student-notes" data-concept="${conceptId}">
+                    <h4>Mis Notas Personales</h4>
+                    <p style="font-size: 12px; color: #888;">Aquí puedes agregar tus propias anotaciones, ejemplos adicionales, cuadros o cualquier información que te ayude a comprender mejor este concepto.</p>
+                    <textarea id="student-notes-${conceptId}" rows="10" placeholder="Escribe tus notas aquí...">${studentNotes}</textarea>
+                    <div class="editor-actions" style="margin-top: 10px;">
+                        <button class="btn btn-secondary" onclick="closeStudentNotes()">Cerrar</button>
+                        <button class="btn btn-primary" onclick="saveStudentNotesContent('${conceptId}')">Guardar Mis Notas</button>
+                    </div>
+                </div>
+                
+                <div class="modal-actions">
+                    ${actionsHTML}
+                </div>
+            `;
+            
+            modal.style.display = 'block';
+            
+            if (isAdmin) {
+                displayStatistics();
+            }
+        }
+
+        function toggleEditor(conceptId) {
+            const editor = document.getElementById('contentEditor');
+            const display = document.getElementById('contentDisplay');
+            
+            if (editor.classList.contains('active')) {
+                editor.classList.remove('active');
+                display.style.display = 'block';
+            } else {
+                editor.classList.add('active');
+                display.style.display = 'none';
+                // Cerrar notas de estudiante si están abiertas
+                document.getElementById('studentNotesArea').classList.remove('active');
+            }
+        }
+
+        function closeEditor() {
+            document.getElementById('contentEditor').classList.remove('active');
+            document.getElementById('contentDisplay').style.display = 'block';
+        }
+
+        function saveEdits(conceptId) {
+            const title = document.getElementById('edit-title').value;
+            const definition = document.getElementById('edit-definition').value;
+            const uses = document.getElementById('edit-uses').value;
+            const example = document.getElementById('edit-example').value;
+            
+            const concepts = getConcepts();
+            concepts[conceptId] = {
+                title, definition, uses, example
+            };
+            saveConcepts(concepts);
+            
+            alert('Cambios guardados exitosamente');
+            closeEditor();
+            
+            // Actualizar la vista
+            showModal(conceptId);
+        }
+
+        function toggleStudentNotes(conceptId) {
+            const notesArea = document.getElementById('studentNotesArea');
+            const display = document.getElementById('contentDisplay');
+            
+            if (notesArea.classList.contains('active')) {
+                notesArea.classList.remove('active');
+                display.style.display = 'block';
+            } else {
+                notesArea.classList.add('active');
+                display.style.display = 'none';
+                // Cerrar editor si está abierto
+                document.getElementById('contentEditor').classList.remove('active');
+            }
+        }
+
+        function closeStudentNotes() {
+            document.getElementById('studentNotesArea').classList.remove('active');
+            document.getElementById('contentDisplay').style.display = 'block';
+        }
+
+        function saveStudentNotesContent(conceptId) {
+            const content = document.getElementById(`student-notes-${conceptId}`).value;
+            saveStudentNotes(conceptId, content);
+            alert('Tus notas han sido guardadas exitosamente');
+        }
+
+        // ============================================
+        // EVENT LISTENERS
+        // ============================================
+        mainContainer.addEventListener('click', function(event) {
+            // Only open estadistica modal if clicking the bubbles-area background (not a bubble or title)
+            if (event.target === this || event.target.classList.contains('bubbles-area')) {
+                // do nothing - estadistica is accessed only via the yellow title rectangle
+            }
+        });
+
+        bubbles.forEach(bubble => {
+            bubble.addEventListener('click', function(event) {
+                event.stopPropagation();
+                const concept = this.getAttribute('data-concept');
+                showModal(concept);
+                
+                bubbles.forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+
+        closeBtn.addEventListener('click', function() {
+            modal.style.display = 'none';
+            bubbles.forEach(b => b.classList.remove('active'));
+        });
+
+        window.addEventListener('click', function(event) {
+            if (event.target === modal) {
+                modal.style.display = 'none';
+                bubbles.forEach(b => b.classList.remove('active'));
+            }
+        });
+
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                modal.style.display = 'none';
+                bubbles.forEach(b => b.classList.remove('active'));
+            }
+        });
+
+        // Prevenir enter en campos de login
+        document.querySelectorAll('#loginScreen input').forEach(input => {
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const step = this.closest('.login-step');
+                    const button = step.querySelector('.btn-primary');
+                    if (button) button.click();
+                }
+            });
+        });
+
+        // ============================================
+        // INICIALIZACIÓN
+        // ============================================
+        initializeStorage();
+    </script>
+</body>
+</html>
